@@ -1,19 +1,18 @@
-For removing columns..case sensitive
+
 
 #start time and end time columns
 df['start time']=pd.to_datetime(df['Date Time'],errors='coerce')
-df['end time']=df['start time']+ datetime.timedelta(minutes=5)
+# df['end time']=df['start time']+ datetime.timedelta(minutes=5)
 
 #time only (no date)
 df['start time']=df['start time'].dt.time
-df['end time']=df['end time'].dt.time
+# df['end time']=df['end time'].dt.time
 
 #subject column - combines country and event
 df['subject']=df['Country/Region'] + ": " + df['Event']
 
 #rows to remove..note the use of df2
 df2=df[~df.subject.str.contains("Bloomberg",na=False)]
-df2=df2[~df.C.str.contains('DE',na=False)]
 df2=df2[~df.subject.str.contains('Banking Groups',na=False)]
 df2=df2[~df.subject.str.contains('Public Sector',na=False)]
 df2=df2[~df.subject.str.contains('Machine Tool',na=False)]
@@ -89,14 +88,16 @@ df2=df2[~df.subject.str.contains('CPI Index',na=False)]
 df2=df2[~df.subject.str.contains('Tankan',na=False)]
 df2=df2[~df.subject.str.contains('EU27',na=False)]
 df2=df2[~df.subject.str.contains('Labour Costs',na=False)]
+df2=df2[~df.subject.str.contains('Mich.',na=False)]
 df2=df2[~df.subject.str.contains('Ex Autos and Gas',na=False)]
 df2=df2[~df.subject.str.contains('(SIC)',na=False)]
 df2=df2[~df.subject.str.contains('Eco Watchers',na=False)]
 df2=df2[~df.subject.str.contains('Outright Bond',na=False)]
 df2=df2[~df.subject.str.contains('Rate Trend',na=False)]
-df2=df2[~df.subject.str.contains('IFO Business Climate',na=False)]
+# df2=df2[~df.subject.str.contains('IFO Business Climate',na=False)]
 df2=df2[~df.subject.str.contains('IFO Expectations',na=False)]
 df2=df2[~df.subject.str.contains('PPI Output',na=False)]
+df2=df2[~df.subject.str.contains('Wellbeing',na=False)]
 df2=df2[~df.subject.str.contains('RPI Ex',na=False)]
 df2=df2[~df.subject.str.contains('12 Mth',na=False)]
 df2=df2[~df.subject.str.contains('Part',na=False)]
@@ -116,10 +117,10 @@ df2=df2[~df.subject.str.contains('Personal Spending',na=False)]
 df2=df2[~df.subject.str.contains('GDP Price Index',na=False)]
 df2=df2[~df.subject.str.contains('Retail Sales Ex Auto',na=False)]
 df2=df2[~df.subject.str.contains('TIC Flows',na=False)]
-df2=df2[~df.subject.str.contains('CPI B',na=False)]
-df2=df2[~df.subject.str.contains('CPI R',na=False)]
-df2=df2[~df.subject.str.contains('CPI H',na=False)]
-df2=df2[~df.subject.str.contains('CPI No',na=False)]
+# df2=df2[~df.subject.str.contains('CPI B',na=False)]
+# df2=df2[~df.subject.str.contains('CPI R',na=False)]
+# df2=df2[~df.subject.str.contains('CPI H',na=False)]
+# df2=df2[~df.subject.str.contains('CPI No',na=False)]
 df2=df2[~df.subject.str.contains('Daily',na=False)]
 df2=df2[~df.subject.str.contains('Tourist',na=False)]
 df2=df2[~df.subject.str.contains('LELIQ',na=False)]
@@ -154,15 +155,69 @@ df2=df2[~df.subject.str.contains('Revision',na=False)]
 df2=df2[~df.subject.str.contains('Slovakia',na=False)]
 df2=df2[~df.subject.str.contains('Confidence MoM',na=False)]
 df2=df2[~df.subject.str.contains('W/ Auto Fuel',na=False)]
+df2=df2[~df.subject.str.contains('Industrial Production',na=False)]
 
-df2=df2.dropna()
+df2=df2.dropna(subset={'subject',})
 df2.shape
 
+dfs=df2[['Date Time','Day','C','subject','Surv(M)','Surv(A)','Surv(H)', 'Surv(L)','# Ests.','Std Dev','Category']]
+dfs=dfs.rename(columns={'# Ests.':'estimates_submitted'})
 
-df.to_csv(file_name)
-df2.to_csv('www.csv', )
+# df.to_csv(file_name)
+dfs.to_csv('www.csv', )
 
 
-writer = pd.ExcelWriter('output.xlsx')
-df2.to_excel(writer,'Sheet1')
-writer.save()
+# writer = pd.ExcelWriter('output.xlsx')
+# df2.to_excel(writer,'Sheet1')
+# writer.save()
+
+# pd.set_option('display.max_colwidth', -1)
+
+cbs=dfs[dfs['subject'].str.contains('Rate')]
+cbs = pd.concat([cbs, dfs[dfs['subject'].str.contains('Minutes')]])
+
+cbs['datetime']=pd.to_datetime(cbs['Date Time'],errors='coerce')
+cbs['day']=cbs['datetime'].dt.day
+cbs['event_date']=cbs['subject']+' ('+cbs['Day'].astype(str)+')'
+
+plt.rcParams.update({'font.size': 15})
+
+
+data=cbs.dropna(subset=['datetime'])
+dates=data['datetime']
+names=data['event_date']
+
+# Choose some nice levels
+levels = np.tile([-5, 5, -3, 3, -1, 1],
+                 int(np.ceil(len(dates)/6)))[:len(dates)]
+
+# Create figure and plot a stem plot with the date
+fig, ax = plt.subplots(figsize=(8.8, 4), constrained_layout=True)
+ax.set(title="Central Bank Meetings and Minutes")
+
+ax.vlines(dates, 0, levels, color="tab:red")  # The vertical stems.
+ax.plot(dates, np.zeros_like(dates), "-o",
+        color="k", markerfacecolor="w")  # Baseline and markers on it.
+
+# annotate lines
+for d, l, r in zip(dates, levels, names):
+    ax.annotate(r, xy=(d, l),
+                xytext=(-3, np.sign(l)*3), textcoords="offset points",
+                horizontalalignment="right",
+                verticalalignment="bottom" if l > 0 else "top")
+
+# format xaxis with 4 month intervals
+ax.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+
+# remove y axis and spines
+ax.yaxis.set_visible(False)
+ax.axis('off') #removes the frame around the chart
+
+ax.margins(y=0.1)
+fig = mpl.pyplot.gcf()
+fig.set_size_inches(18,8)
+plt.show()
+
+
